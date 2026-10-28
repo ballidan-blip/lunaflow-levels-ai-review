@@ -1,0 +1,77 @@
+# PUBLIC REVIEW COPY ONLY — deployment intentionally disabled and infrastructure details redacted.
+name: Deploy LunaFlow Levels (review copy)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    if: false # Review mirror only; supporting project files are intentionally not published.
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Run test suite
+        run: python -m pytest -q tests
+
+  secret-scan:
+    if: false # Review mirror only.
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+
+  deploy:
+    if: false # Intentionally disabled in the public review mirror.
+    name: Deploy to VPS
+    needs:
+      - tests
+      - secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.LEVELS_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.LEVELS_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/levels_deploy"
+          chmod 600 "$HOME/.ssh/levels_deploy"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy and verify
+        run: |
+          ssh \
+            -i "$HOME/.ssh/levels_deploy" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o IdentitiesOnly=yes \
+            -o ConnectTimeout=10 \
+            REDACTED_USER@REDACTED_HOST \
+            'REDACTED_DEPLOY_COMMAND'
